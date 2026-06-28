@@ -14,6 +14,7 @@ import { Route as LeaderboardRouteImport } from './routes/leaderboard'
 import { Route as ForumRouteImport } from './routes/forum'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CoursesRouteImport } from './routes/courses'
+import { Route as CertificatesRouteImport } from './routes/certificates'
 import { Route as AiTutorRouteImport } from './routes/ai-tutor'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -42,6 +43,11 @@ const CoursesRoute = CoursesRouteImport.update({
   path: '/courses',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CertificatesRoute = CertificatesRouteImport.update({
+  id: '/certificates',
+  path: '/certificates',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AiTutorRoute = AiTutorRouteImport.update({
   id: '/ai-tutor',
   path: '/ai-tutor',
@@ -56,6 +62,7 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/ai-tutor': typeof AiTutorRoute
+  '/certificates': typeof CertificatesRoute
   '/courses': typeof CoursesRoute
   '/dashboard': typeof DashboardRoute
   '/forum': typeof ForumRoute
@@ -65,6 +72,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/ai-tutor': typeof AiTutorRoute
+  '/certificates': typeof CertificatesRoute
   '/courses': typeof CoursesRoute
   '/dashboard': typeof DashboardRoute
   '/forum': typeof ForumRoute
@@ -75,6 +83,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/ai-tutor': typeof AiTutorRoute
+  '/certificates': typeof CertificatesRoute
   '/courses': typeof CoursesRoute
   '/dashboard': typeof DashboardRoute
   '/forum': typeof ForumRoute
@@ -86,6 +95,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/ai-tutor'
+    | '/certificates'
     | '/courses'
     | '/dashboard'
     | '/forum'
@@ -95,6 +105,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/ai-tutor'
+    | '/certificates'
     | '/courses'
     | '/dashboard'
     | '/forum'
@@ -104,6 +115,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/ai-tutor'
+    | '/certificates'
     | '/courses'
     | '/dashboard'
     | '/forum'
@@ -114,6 +126,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AiTutorRoute: typeof AiTutorRoute
+  CertificatesRoute: typeof CertificatesRoute
   CoursesRoute: typeof CoursesRoute
   DashboardRoute: typeof DashboardRoute
   ForumRoute: typeof ForumRoute
@@ -158,6 +171,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CoursesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/certificates': {
+      id: '/certificates'
+      path: '/certificates'
+      fullPath: '/certificates'
+      preLoaderRoute: typeof CertificatesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/ai-tutor': {
       id: '/ai-tutor'
       path: '/ai-tutor'
@@ -178,6 +198,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AiTutorRoute: AiTutorRoute,
+  CertificatesRoute: CertificatesRoute,
   CoursesRoute: CoursesRoute,
   DashboardRoute: DashboardRoute,
   ForumRoute: ForumRoute,
