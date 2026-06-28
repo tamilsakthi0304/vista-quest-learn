@@ -1,8 +1,32 @@
 import { Outlet } from "@tanstack/react-router";
 import { Sidebar } from "./Sidebar";
 import { Bell, Search, Flame } from "lucide-react";
+import { useEffect, useState } from "react";
+import { api, UserProfile } from "@/lib/api";
 
 export function AppShell({ children }: { children?: React.ReactNode }) {
+  const [user, setUser] = useState<UserProfile | null>(null);
+
+  const loadProfile = () => {
+    api.getUserProfile()
+      .then(setUser)
+      .catch((err) => console.error("Error fetching user profile:", err));
+  };
+
+  useEffect(() => {
+    loadProfile();
+    window.addEventListener("profile-updated", loadProfile);
+    return () => window.removeEventListener("profile-updated", loadProfile);
+  }, []);
+
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(3);
+  const [notifications, setNotifications] = useState([
+    { id: 1, text: "✨ AI recommendation: eigenvectors AR lab is ready.", when: "10m ago" },
+    { id: 2, text: "💬 Marcus Tate replied to your thread 'Intuition behind backpropagation'.", when: "1h ago" },
+    { id: 3, text: "🏆 Mastery score increased to 71% after your last quiz.", when: "1d ago" }
+  ]);
+
   return (
     <div className="flex min-h-dvh">
       <Sidebar />
@@ -27,12 +51,45 @@ export function AppShell({ children }: { children?: React.ReactNode }) {
             <div className="flex items-center gap-2 shrink-0">
               <div className="flex items-center gap-1.5 rounded-full bg-coral/15 text-coral px-2.5 py-1 text-xs font-medium border border-coral/20">
                 <Flame className="h-3.5 w-3.5" />
-                <span>12 day streak</span>
+                <span>{user ? `${user.streak} day streak` : "Loading streak..."}</span>
               </div>
-              <button className="relative grid h-9 w-9 place-items-center rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
-                <Bell className="h-4 w-4" />
-                <span className="absolute top-2 right-2 h-1.5 w-1.5 rounded-full bg-primary" />
-              </button>
+              
+              <div className="relative">
+                <button 
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className="relative grid h-9 w-9 place-items-center rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="Notifications"
+                >
+                  <Bell className="h-4 w-4" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-2 right-2 h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                  )}
+                </button>
+                
+                {showNotifications && (
+                  <div className="absolute right-0 mt-2 w-80 rounded-2xl border border-border bg-card/95 p-4 shadow-xl z-50 backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-150">
+                    <div className="flex items-center justify-between border-b border-border pb-2 mb-2">
+                      <span className="font-display font-semibold text-sm">Notifications</span>
+                      {unreadCount > 0 && (
+                        <button 
+                          onClick={() => setUnreadCount(0)}
+                          className="text-[10px] font-mono uppercase text-primary hover:underline"
+                        >
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
+                    <ul className="space-y-2.5 max-h-60 overflow-y-auto">
+                      {notifications.map((n) => (
+                        <li key={n.id} className="text-xs space-y-0.5 text-left">
+                          <p className="text-foreground leading-normal">{n.text}</p>
+                          <span className="text-[10px] text-muted-foreground font-mono">{n.when}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </header>

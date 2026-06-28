@@ -1,28 +1,64 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/lms/AppShell";
 import { Trophy, Flame, TrendingUp, TrendingDown } from "lucide-react";
+import { useEffect, useState } from "react";
+import { api, UserProfile } from "@/lib/api";
 
 export const Route = createFileRoute("/leaderboard")({
   head: () => ({ meta: [{ title: "Leaderboard · Neuron LMS" }] }),
   component: Leaderboard,
 });
 
-const data = [
-  { n: "Jia Wen", xp: 4820, streak: 42, dir: "up", you: false, dept: "AI" },
-  { n: "Marcus Tate", xp: 4640, streak: 31, dir: "up", you: false, dept: "CS" },
-  { n: "Priya Raman", xp: 4210, streak: 28, dir: "down", you: false, dept: "Math" },
-  { n: "Aisha Khan", xp: 3980, streak: 12, dir: "up", you: true, dept: "CS" },
-  { n: "Diego Luna", xp: 3720, streak: 19, dir: "up", you: false, dept: "Physics" },
-  { n: "Hana Sato", xp: 3590, streak: 8, dir: "down", you: false, dept: "Bio" },
-  { n: "Ethan Brooks", xp: 3410, streak: 22, dir: "up", you: false, dept: "AI" },
-  { n: "Sofia Mendez", xp: 3220, streak: 15, dir: "up", you: false, dept: "Econ" },
-  { n: "Kenji Watanabe", xp: 3050, streak: 9, dir: "down", you: false, dept: "Math" },
-  { n: "Lara Petrov", xp: 2890, streak: 14, dir: "up", you: false, dept: "CS" },
-];
-
 function Leaderboard() {
+  const [data, setData] = useState<UserProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.getLeaderboard()
+      .then((users) => {
+        setData(users);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Error fetching leaderboard:", err);
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) {
+    return (
+      <AppShell>
+        <div className="max-w-5xl mx-auto h-[50vh] grid place-items-center">
+          <div className="text-center space-y-2">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-primary mx-auto" />
+            <p className="text-muted-foreground text-sm font-mono uppercase tracking-wider">Loading Leaderboard rankings...</p>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
   const top3 = data.slice(0, 3);
   const rest = data.slice(3);
+
+  // Helper to determine department and direction matches the mockup values
+  const getDept = (name: string) => {
+    if (name === "Priya Raman") return "Math";
+    if (name === "Diego Luna") return "Physics";
+    if (name === "Hana Sato") return "Bio";
+    if (name === "Sofia Mendez") return "Econ";
+    if (name === "Kenji Watanabe") return "Math";
+    if (name === "Jia Wen" || name === "Ethan Brooks") return "AI";
+    return "CS";
+  };
+
+  const getDir = (name: string) => {
+    if (name === "Priya Raman" || name === "Hana Sato" || name === "Kenji Watanabe") {
+      return "down";
+    }
+    return "up";
+  };
+
   return (
     <AppShell>
       <div className="max-w-5xl mx-auto space-y-10">
@@ -34,41 +70,44 @@ function Leaderboard() {
         </div>
 
         {/* podium */}
-        <div className="grid grid-cols-3 gap-3 sm:gap-6 items-end">
-          {[top3[1], top3[0], top3[2]].map((p, idx) => {
-            const rank = idx === 1 ? 1 : idx === 0 ? 2 : 3;
-            const heights = ["h-32 sm:h-40", "h-44 sm:h-56", "h-24 sm:h-32"];
-            return (
-              <div key={p.n} className="flex flex-col items-center text-center">
-                <div
-                  className={`grid h-14 w-14 sm:h-16 sm:w-16 place-items-center rounded-full font-display font-bold text-lg mb-3 ${
-                    rank === 1
-                      ? "bg-gradient-to-br from-primary to-sky text-primary-foreground shadow-[var(--glow-lime)]"
-                      : rank === 2
-                      ? "bg-gradient-to-br from-sky to-violet text-foreground"
-                      : "bg-gradient-to-br from-coral to-violet text-foreground"
-                  }`}
-                >
-                  {p.n
-                    .split(" ")
-                    .map((w) => w[0])
-                    .join("")}
+        {top3.length > 0 && (
+          <div className="grid grid-cols-3 gap-3 sm:gap-6 items-end">
+            {[top3[1] || top3[0], top3[0], top3[2] || top3[0]].map((p, idx) => {
+              if (!p) return null;
+              const rank = idx === 1 ? 1 : idx === 0 ? 2 : 3;
+              const heights = ["h-32 sm:h-40", "h-44 sm:h-56", "h-24 sm:h-32"];
+              return (
+                <div key={p.name} className="flex flex-col items-center text-center">
+                  <div
+                    className={`grid h-14 w-14 sm:h-16 sm:w-16 place-items-center rounded-full font-display font-bold text-lg mb-3 ${
+                      rank === 1
+                        ? "bg-gradient-to-br from-primary to-sky text-primary-foreground shadow-[var(--glow-lime)]"
+                        : rank === 2
+                        ? "bg-gradient-to-br from-sky to-violet text-foreground"
+                        : "bg-gradient-to-br from-coral to-violet text-foreground"
+                    }`}
+                  >
+                    {p.name
+                      .split(" ")
+                      .map((w) => w[0])
+                      .join("")}
+                  </div>
+                  <div className="font-display font-semibold text-sm sm:text-base truncate w-full">{p.name}</div>
+                  <div className="text-xs text-muted-foreground">{p.xp.toLocaleString()} XP</div>
+                  <div
+                    className={`mt-3 w-full ${heights[idx]} rounded-t-2xl border border-border border-b-0 ${
+                      rank === 1
+                        ? "bg-gradient-to-b from-primary/30 to-transparent"
+                        : "bg-gradient-to-b from-surface to-transparent"
+                    } grid place-items-start pt-3`}
+                  >
+                    <div className="font-display text-3xl sm:text-5xl font-bold mx-auto">{rank}</div>
+                  </div>
                 </div>
-                <div className="font-display font-semibold text-sm sm:text-base truncate w-full">{p.n}</div>
-                <div className="text-xs text-muted-foreground">{p.xp.toLocaleString()} XP</div>
-                <div
-                  className={`mt-3 w-full ${heights[idx]} rounded-t-2xl border border-border border-b-0 ${
-                    rank === 1
-                      ? "bg-gradient-to-b from-primary/30 to-transparent"
-                      : "bg-gradient-to-b from-surface to-transparent"
-                  } grid place-items-start pt-3`}
-                >
-                  <div className="font-display text-3xl sm:text-5xl font-bold mx-auto">{rank}</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* table */}
         <div className="rounded-2xl border border-border bg-card/60 overflow-hidden">
@@ -79,41 +118,44 @@ function Leaderboard() {
             <span className="text-right">xp</span>
             <span className="text-right">trend</span>
           </div>
-          {rest.map((p, i) => (
-            <div
-              key={p.n}
-              className={`grid grid-cols-[40px_1fr_80px_80px_60px] sm:grid-cols-[60px_1fr_120px_120px_80px] gap-3 px-4 sm:px-6 py-3 items-center border-b border-border/40 last:border-0 ${
-                p.you ? "bg-primary/10" : "hover:bg-accent/30"
-              }`}
-            >
-              <span className="font-mono font-bold text-muted-foreground">#{i + 4}</span>
-              <div className="min-w-0 flex items-center gap-3">
-                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-violet to-sky text-xs font-display font-bold">
-                  {p.n
-                    .split(" ")
-                    .map((w) => w[0])
-                    .join("")}
-                </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-medium truncate">
-                    {p.n} {p.you && <span className="text-[10px] font-mono uppercase text-primary ml-1">you</span>}
+          {rest.map((p, i) => {
+            const dir = getDir(p.name);
+            return (
+              <div
+                key={p.name}
+                className={`grid grid-cols-[40px_1fr_80px_80px_60px] sm:grid-cols-[60px_1fr_120px_120px_80px] gap-3 px-4 sm:px-6 py-3 items-center border-b border-border/40 last:border-0 ${
+                  p.name === "Aisha Khan" ? "bg-primary/10" : "hover:bg-accent/30"
+                }`}
+              >
+                <span className="font-mono font-bold text-muted-foreground">#{i + 4}</span>
+                <div className="min-w-0 flex items-center gap-3">
+                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-violet to-sky text-xs font-display font-bold">
+                    {p.name
+                      .split(" ")
+                      .map((w) => w[0])
+                      .join("")}
                   </div>
-                  <div className="text-xs text-muted-foreground">{p.dept}</div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium truncate">
+                      {p.name} {p.name === "Aisha Khan" && <span className="text-[10px] font-mono uppercase text-primary ml-1">you</span>}
+                    </div>
+                    <div className="text-xs text-muted-foreground">{getDept(p.name)}</div>
+                  </div>
+                </div>
+                <div className="text-right text-sm font-mono inline-flex items-center justify-end gap-1">
+                  <Flame className="h-3 w-3 text-coral" /> {p.streak}
+                </div>
+                <div className="text-right text-sm font-mono font-semibold">{p.xp.toLocaleString()}</div>
+                <div className={`text-right ${dir === "up" ? "text-primary" : "text-coral"}`}>
+                  {dir === "up" ? (
+                    <TrendingUp className="h-4 w-4 inline" />
+                  ) : (
+                    <TrendingDown className="h-4 w-4 inline" />
+                  )}
                 </div>
               </div>
-              <div className="text-right text-sm font-mono inline-flex items-center justify-end gap-1">
-                <Flame className="h-3 w-3 text-coral" /> {p.streak}
-              </div>
-              <div className="text-right text-sm font-mono font-semibold">{p.xp.toLocaleString()}</div>
-              <div className={`text-right ${p.dir === "up" ? "text-primary" : "text-coral"}`}>
-                {p.dir === "up" ? (
-                  <TrendingUp className="h-4 w-4 inline" />
-                ) : (
-                  <TrendingDown className="h-4 w-4 inline" />
-                )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <div className="text-xs font-mono text-muted-foreground text-center">
@@ -124,3 +166,4 @@ function Leaderboard() {
     </AppShell>
   );
 }
+export default Leaderboard;
