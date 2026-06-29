@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import crypto from "crypto";
 import { User } from "./models/User.js";
 import { Course } from "./models/Course.js";
 import { Thread } from "./models/Thread.js";
@@ -10,10 +11,17 @@ import { ScheduleBlock } from "./models/ScheduleBlock.js";
 dotenv.config();
 
 const mongoUri = process.env.MONGO_URI || "mongodb://localhost:27017/neuron_lms";
+const PASSWORD_SALT = "neuron-salt-key-987654321";
+
+function hashPassword(password) {
+  return crypto.createHmac("sha256", PASSWORD_SALT).update(password).digest("hex");
+}
 
 const usersData = [
   {
     name: "Aisha Khan",
+    email: "aisha@neuron.lms",
+    password: hashPassword("password123"),
     xp: 3980,
     xpToday: 340,
     streak: 12,
@@ -33,15 +41,15 @@ const usersData = [
       { icon: "🚀", label: "Launch", earned: false },
     ]
   },
-  { name: "Jia Wen", xp: 4820, streak: 42, focusTime: "12h 15m", mastery: 85, badges: [] },
-  { name: "Marcus Tate", xp: 4640, streak: 31, focusTime: "10h 30m", mastery: 82, badges: [] },
-  { name: "Priya Raman", xp: 4210, streak: 28, focusTime: "9h 45m", mastery: 79, badges: [] },
-  { name: "Diego Luna", xp: 3720, streak: 19, focusTime: "7h 15m", mastery: 68, badges: [] },
-  { name: "Hana Sato", xp: 3590, streak: 8, focusTime: "6h 50m", mastery: 65, badges: [] },
-  { name: "Ethan Brooks", xp: 3410, streak: 22, focusTime: "8h 10m", mastery: 63, badges: [] },
-  { name: "Sofia Mendez", xp: 3220, streak: 15, focusTime: "5h 40m", mastery: 60, badges: [] },
-  { name: "Kenji Watanabe", xp: 3050, streak: 9, focusTime: "4h 30m", mastery: 55, badges: [] },
-  { name: "Lara Petrov", xp: 2890, streak: 14, focusTime: "5h 15m", mastery: 52, badges: [] }
+  { name: "Jia Wen", email: "jia@neuron.lms", password: hashPassword("password123"), xp: 4820, streak: 42, focusTime: "12h 15m", mastery: 85, badges: [] },
+  { name: "Marcus Tate", email: "marcus@neuron.lms", password: hashPassword("password123"), xp: 4640, streak: 31, focusTime: "10h 30m", mastery: 82, badges: [] },
+  { name: "Priya Raman", email: "priya@neuron.lms", password: hashPassword("password123"), xp: 4210, streak: 28, focusTime: "9h 45m", mastery: 79, badges: [] },
+  { name: "Diego Luna", email: "diego@neuron.lms", password: hashPassword("password123"), xp: 3720, streak: 19, focusTime: "7h 15m", mastery: 68, badges: [] },
+  { name: "Hana Sato", email: "hana@neuron.lms", password: hashPassword("password123"), xp: 3590, streak: 8, focusTime: "6h 50m", mastery: 65, badges: [] },
+  { name: "Ethan Brooks", email: "ethan@neuron.lms", password: hashPassword("password123"), xp: 3410, streak: 22, focusTime: "8h 10m", mastery: 63, badges: [] },
+  { name: "Sofia Mendez", email: "sofia@neuron.lms", password: hashPassword("password123"), xp: 3220, streak: 15, focusTime: "5h 40m", mastery: 60, badges: [] },
+  { name: "Kenji Watanabe", email: "kenji@neuron.lms", password: hashPassword("password123"), xp: 3050, streak: 9, focusTime: "4h 30m", mastery: 55, badges: [] },
+  { name: "Lara Petrov", email: "lara@neuron.lms", password: hashPassword("password123"), xp: 2890, streak: 14, focusTime: "5h 15m", mastery: 52, badges: [] }
 ];
 
 const coursesData = [
@@ -267,7 +275,9 @@ const blocksData = [
 async function seed() {
   try {
     console.log("Seeding process started. Connecting to MongoDB at " + mongoUri + "...");
-    await mongoose.connect(mongoUri);
+    await mongoose.connect(mongoUri, {
+      serverSelectionTimeoutMS: 3000
+    });
     console.log("Connected to MongoDB for seeding.");
 
     // Clear old data

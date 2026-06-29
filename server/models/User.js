@@ -8,6 +8,8 @@ const badgeSchema = new mongoose.Schema({
 
 const userSchema = new mongoose.Schema({
   name: { type: String, default: "Aisha Khan" },
+  email: { type: String, unique: true, required: true },
+  password: { type: String, required: true },
   xp: { type: Number, default: 3980 },
   xpToday: { type: Number, default: 340 },
   streak: { type: Number, default: 12 },

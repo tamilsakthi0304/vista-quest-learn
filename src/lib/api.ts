@@ -66,15 +66,27 @@ export interface ScheduleBlock {
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("neuron_token") : null;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options?.headers as Record<string, string> || {}),
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   const response = await fetch(path, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options?.headers || {}),
-    },
+    headers,
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      if (typeof window !== "undefined" && window.location.pathname !== "/" && !window.location.pathname.startsWith("/auth")) {
+        localStorage.removeItem("neuron_token");
+        window.location.href = "/auth";
+      }
+    }
     const errorText = await response.text();
     throw new Error(`API Error: ${response.status} - ${errorText || response.statusText}`);
   }
@@ -83,6 +95,18 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  // Auth
+  login: (email: string, password: string) =>
+    request<{ token: string; user: UserProfile }>("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    }),
+  register: (name: string, email: string, password: string) =>
+    request<{ token: string; user: UserProfile }>("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify({ name, email, password }),
+    }),
+
   // User profile
   getUserProfile: () => request<UserProfile>("/api/user/profile"),
   updateUserProfile: (name: string) =>

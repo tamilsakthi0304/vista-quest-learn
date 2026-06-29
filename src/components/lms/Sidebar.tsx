@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard,
   BookOpen,
@@ -9,10 +9,18 @@ import {
   Award,
   Settings,
   X,
+  LogOut,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, UserProfile } from "@/lib/api";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const nav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -25,11 +33,18 @@ const nav = [
 ] as const;
 
 export function Sidebar() {
+  const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [user, setUser] = useState<UserProfile | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [updating, setUpdating] = useState(false);
+
+  const handleLogout = () => {
+    localStorage.removeItem("neuron_token");
+    toast.success("Logged out successfully.");
+    navigate({ to: "/auth" });
+  };
 
   const loadProfile = () => {
     api.getUserProfile()
@@ -105,27 +120,51 @@ export function Sidebar() {
         </nav>
 
         <div className="border-t border-border p-4">
-          <div className="flex items-center gap-3 rounded-lg p-2 hover:bg-accent/50 transition-colors">
-            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-violet to-sky font-display font-semibold text-sm">
-              {initials}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium truncate">{user ? user.name : "Loading..."}</div>
-              <div className="text-xs text-muted-foreground">CS · Year 3</div>
-            </div>
-            <button
-              onClick={() => {
-                if (user) {
-                  setNameInput(user.name);
-                  setShowSettings(true);
-                }
-              }}
-              className="p-1 hover:bg-accent rounded-lg text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Settings"
-            >
-              <Settings className="h-4 w-4" />
-            </button>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <div className="flex items-center gap-3 rounded-lg p-2 hover:bg-accent/50 transition-colors cursor-pointer group">
+                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-violet to-sky font-display font-semibold text-sm">
+                  {initials}
+                </div>
+                <div className="min-w-0 flex-1 text-left">
+                  <div className="text-sm font-medium truncate">{user ? user.name : "Loading..."}</div>
+                  <div className="text-xs text-muted-foreground">CS · Year 3</div>
+                </div>
+                <button
+                  type="button"
+                  className="p-1 hover:bg-accent rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="User menu"
+                >
+                  <Settings className="h-4 w-4" />
+                </button>
+              </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 bg-card/95 border-border backdrop-blur-xl">
+              <div className="px-2 py-1.5 text-xs text-muted-foreground font-mono uppercase tracking-wider">
+                Account
+              </div>
+              <DropdownMenuItem
+                onClick={() => {
+                  if (user) {
+                    setNameInput(user.name);
+                    setShowSettings(true);
+                  }
+                }}
+                className="cursor-pointer gap-2"
+              >
+                <Settings className="h-4 w-4 text-muted-foreground" />
+                <span>Profile Settings</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="bg-border" />
+              <DropdownMenuItem
+                onClick={handleLogout}
+                className="cursor-pointer text-destructive focus:text-destructive gap-2"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Log Out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </aside>
 

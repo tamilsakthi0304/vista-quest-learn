@@ -123,6 +123,16 @@ import { Toaster } from "@/components/ui/sonner";
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const token = localStorage.getItem("neuron_token");
+      const path = window.location.pathname;
+      if (!token && path !== "/" && !path.startsWith("/auth")) {
+        window.location.href = "/auth";
+      }
+    }
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}

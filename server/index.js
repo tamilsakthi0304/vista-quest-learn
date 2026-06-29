@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import crypto from "crypto";
 import { connectDB, getDbMode } from "./config/db.js";
 import { User } from "./models/User.js";
 import { Course } from "./models/Course.js";
@@ -15,10 +16,36 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Load in-memory fallback datasets matching seed.js
+const JWT_SECRET = process.env.JWT_SECRET || "neuron-secret-key-123456789";
+const PASSWORD_SALT = "neuron-salt-key-987654321";
+
+export function hashPassword(password) {
+  return crypto.createHmac("sha256", PASSWORD_SALT).update(password).digest("hex");
+}
+
+function generateToken(payload) {
+  const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+  const data = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const signature = crypto.createHmac("sha256", JWT_SECRET).update(`${header}.${data}`).digest("base64url");
+  return `${header}.${data}.${signature}`;
+}
+
+function verifyToken(token) {
+  try {
+    const [header, data, signature] = token.split(".");
+    const expectedSignature = crypto.createHmac("sha256", JWT_SECRET).update(`${header}.${data}`).digest("base64url");
+    if (signature !== expectedSignature) return null;
+    return JSON.parse(Buffer.from(data, "base64url").toString("utf8"));
+  } catch (e) {
+    return null;
+  }
+}
+
 const defaultUsers = [
   {
     name: "Aisha Khan",
+    email: "aisha@neuron.lms",
+    password: hashPassword("password123"),
     xp: 3980,
     xpToday: 340,
     streak: 12,
@@ -38,15 +65,15 @@ const defaultUsers = [
       { icon: "🚀", label: "Launch", earned: false },
     ]
   },
-  { name: "Jia Wen", xp: 4820, streak: 42, focusTime: "12h 15m", mastery: 85, badges: [] },
-  { name: "Marcus Tate", xp: 4640, streak: 31, focusTime: "10h 30m", mastery: 82, badges: [] },
-  { name: "Priya Raman", xp: 4210, streak: 28, focusTime: "9h 45m", mastery: 79, badges: [] },
-  { name: "Diego Luna", xp: 3720, streak: 19, focusTime: "7h 15m", mastery: 68, badges: [] },
-  { name: "Hana Sato", xp: 3590, streak: 8, focusTime: "6h 50m", mastery: 65, badges: [] },
-  { name: "Ethan Brooks", xp: 3410, streak: 22, focusTime: "8h 10m", mastery: 63, badges: [] },
-  { name: "Sofia Mendez", xp: 3220, streak: 15, focusTime: "5h 40m", mastery: 60, badges: [] },
-  { name: "Kenji Watanabe", xp: 3050, streak: 9, focusTime: "4h 30m", mastery: 55, badges: [] },
-  { name: "Lara Petrov", xp: 2890, streak: 14, focusTime: "5h 15m", mastery: 52, badges: [] }
+  { name: "Jia Wen", email: "jia@neuron.lms", password: hashPassword("password123"), xp: 4820, streak: 42, focusTime: "12h 15m", mastery: 85, badges: [] },
+  { name: "Marcus Tate", email: "marcus@neuron.lms", password: hashPassword("password123"), xp: 4640, streak: 31, focusTime: "10h 30m", mastery: 82, badges: [] },
+  { name: "Priya Raman", email: "priya@neuron.lms", password: hashPassword("password123"), xp: 4210, streak: 28, focusTime: "9h 45m", mastery: 79, badges: [] },
+  { name: "Diego Luna", email: "diego@neuron.lms", password: hashPassword("password123"), xp: 3720, streak: 19, focusTime: "7h 15m", mastery: 68, badges: [] },
+  { name: "Hana Sato", email: "hana@neuron.lms", password: hashPassword("password123"), xp: 3590, streak: 8, focusTime: "6h 50m", mastery: 65, badges: [] },
+  { name: "Ethan Brooks", email: "ethan@neuron.lms", password: hashPassword("password123"), xp: 3410, streak: 22, focusTime: "8h 10m", mastery: 63, badges: [] },
+  { name: "Sofia Mendez", email: "sofia@neuron.lms", password: hashPassword("password123"), xp: 3220, streak: 15, focusTime: "5h 40m", mastery: 60, badges: [] },
+  { name: "Kenji Watanabe", email: "kenji@neuron.lms", password: hashPassword("password123"), xp: 3050, streak: 9, focusTime: "4h 30m", mastery: 55, badges: [] },
+  { name: "Lara Petrov", email: "lara@neuron.lms", password: hashPassword("password123"), xp: 2890, streak: 14, focusTime: "5h 15m", mastery: 52, badges: [] }
 ];
 
 const defaultCourses = [
@@ -277,30 +304,136 @@ let memMessages = [...defaultMessages];
 let memCertificates = [...defaultCertificates];
 let memBlocks = [...defaultBlocks];
 
-// API Endpoints
+// Authentication Middleware
+const requireAuth = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Access denied. No token provided." });
+  }
 
-// 1. GET User profile
-app.get("/api/user/profile", async (req, res) => {
+  const token = authHeader.split(" ")[1];
+  const decoded = verifyToken(token);
+  if (!decoded) {
+    return res.status(401).json({ error: "Invalid token." });
+  }
+
   const dbMode = getDbMode();
   try {
     if (dbMode.isInMemory) {
-      const u = memUsers.find(x => x.name === "Aisha Khan") || memUsers[0];
-      return res.json(u);
+      const user = memUsers.find(u => u.email === decoded.email);
+      if (!user) return res.status(401).json({ error: "User not found." });
+      req.user = user;
     } else {
-      let u = await User.findOne({ name: "Aisha Khan" });
-      if (!u) {
-        // if db is empty, create a default user
-        u = await User.create(defaultUsers[0]);
-      }
-      return res.json(u);
+      const user = await User.findById(decoded.userId);
+      if (!user) return res.status(401).json({ error: "User not found." });
+      req.user = user;
+    }
+    next();
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+// Register Route
+app.post("/api/auth/register", async (req, res) => {
+  const { name, email, password } = req.body;
+  if (!name || !email || !password) {
+    return res.status(400).json({ error: "All fields are required" });
+  }
+  const dbMode = getDbMode();
+  try {
+    if (dbMode.isInMemory) {
+      const exists = memUsers.some(u => u.email === email);
+      if (exists) return res.status(400).json({ error: "Email already registered" });
+
+      const newUser = {
+        name,
+        email,
+        password: hashPassword(password),
+        xp: 50,
+        xpToday: 50,
+        streak: 1,
+        bestStreak: 1,
+        classRank: "#100",
+        totalClassRank: memUsers.length + 1,
+        mastery: 0,
+        focusTime: "0h 0m",
+        badges: [
+          { icon: "🔥", label: "Streak 1", earned: true },
+          { icon: "🧠", label: "Mind", earned: false },
+          { icon: "⚡", label: "Speed", earned: false },
+        ]
+      };
+      memUsers.push(newUser);
+      const token = generateToken({ email: newUser.email });
+      return res.json({ token, user: newUser });
+    } else {
+      const exists = await User.findOne({ email });
+      if (exists) return res.status(400).json({ error: "Email already registered" });
+
+      const newUser = await User.create({
+        name,
+        email,
+        password: hashPassword(password),
+        xp: 50,
+        xpToday: 50,
+        streak: 1,
+        bestStreak: 1,
+        classRank: "#100",
+        totalClassRank: (await User.countDocuments({})) + 1,
+        mastery: 0,
+        focusTime: "0h 0m",
+        badges: [
+          { icon: "🔥", label: "Streak 1", earned: true },
+          { icon: "🧠", label: "Mind", earned: false },
+          { icon: "⚡", label: "Speed", earned: false },
+        ]
+      });
+      const token = generateToken({ userId: newUser._id, email: newUser.email });
+      return res.json({ token, user: newUser });
     }
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
 });
 
+// Login Route
+app.post("/api/auth/login", async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: "Email and password are required" });
+  }
+  const dbMode = getDbMode();
+  try {
+    if (dbMode.isInMemory) {
+      const user = memUsers.find(u => u.email === email);
+      if (!user || user.password !== hashPassword(password)) {
+        return res.status(401).json({ error: "Invalid email or password" });
+      }
+      const token = generateToken({ email: user.email });
+      return res.json({ token, user });
+    } else {
+      const user = await User.findOne({ email });
+      if (!user || user.password !== hashPassword(password)) {
+        return res.status(401).json({ error: "Invalid email or password" });
+      }
+      const token = generateToken({ userId: user._id, email: user.email });
+      return res.json({ token, user });
+    }
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// API Endpoints
+
+// 1. GET User profile
+app.get("/api/user/profile", requireAuth, async (req, res) => {
+  return res.json(req.user);
+});
+
 // 1b. PUT User profile
-app.put("/api/user/profile", async (req, res) => {
+app.put("/api/user/profile", requireAuth, async (req, res) => {
   const { name } = req.body;
   if (!name || !name.trim()) {
     return res.status(400).json({ error: "Name is required" });
@@ -308,14 +441,13 @@ app.put("/api/user/profile", async (req, res) => {
   const dbMode = getDbMode();
   try {
     if (dbMode.isInMemory) {
-      const u = memUsers.find(x => x.name === "Aisha Khan") || memUsers[0];
-      u.name = name;
-      return res.json(u);
+      req.user.name = name;
+      return res.json(req.user);
     } else {
-      const u = await User.findOneAndUpdate(
-        { name: "Aisha Khan" },
+      const u = await User.findByIdAndUpdate(
+        req.user._id,
         { name },
-        { new: true, upsert: true }
+        { new: true }
       );
       return res.json(u);
     }
@@ -325,22 +457,21 @@ app.put("/api/user/profile", async (req, res) => {
 });
 
 // 2. POST increment XP
-app.post("/api/user/xp", async (req, res) => {
+app.post("/api/user/xp", requireAuth, async (req, res) => {
   const { xpToAdd } = req.body;
   const dbMode = getDbMode();
   try {
     if (dbMode.isInMemory) {
-      const user = memUsers.find(x => x.name === "Aisha Khan") || memUsers[0];
-      user.xp += (xpToAdd || 0);
-      user.xpToday += (xpToAdd || 0);
-      return res.json(user);
+      req.user.xp += (xpToAdd || 0);
+      req.user.xpToday += (xpToAdd || 0);
+      return res.json(req.user);
     } else {
-      const user = await User.findOneAndUpdate(
-        { name: "Aisha Khan" },
+      const u = await User.findByIdAndUpdate(
+        req.user._id,
         { $inc: { xp: xpToAdd || 0, xpToday: xpToAdd || 0 } },
-        { new: true, upsert: true }
+        { new: true }
       );
-      return res.json(user);
+      return res.json(u);
     }
   } catch (err) {
     return res.status(500).json({ error: err.message });
@@ -348,7 +479,7 @@ app.post("/api/user/xp", async (req, res) => {
 });
 
 // 3. GET Courses catalog
-app.get("/api/courses", async (req, res) => {
+app.get("/api/courses", requireAuth, async (req, res) => {
   const dbMode = getDbMode();
   try {
     if (dbMode.isInMemory) {
@@ -363,7 +494,7 @@ app.get("/api/courses", async (req, res) => {
 });
 
 // 4. GET AI Tutor chat history
-app.get("/api/ai-tutor/chat", async (req, res) => {
+app.get("/api/ai-tutor/chat", requireAuth, async (req, res) => {
   const dbMode = getDbMode();
   try {
     if (dbMode.isInMemory) {
@@ -378,7 +509,7 @@ app.get("/api/ai-tutor/chat", async (req, res) => {
 });
 
 // 5. POST AI Tutor chat message
-app.post("/api/ai-tutor/chat", async (req, res) => {
+app.post("/api/ai-tutor/chat", requireAuth, async (req, res) => {
   const { text } = req.body;
   if (!text || !text.trim()) {
     return res.status(400).json({ error: "Text is required" });
@@ -403,9 +534,8 @@ app.post("/api/ai-tutor/chat", async (req, res) => {
       memMessages.push(aiMsg);
 
       // Give 50 XP to user for asking a question!
-      const user = memUsers.find(x => x.name === "Aisha Khan") || memUsers[0];
-      user.xp += 50;
-      user.xpToday += 50;
+      req.user.xp += 50;
+      req.user.xpToday += 50;
 
       return res.json({ messages: memMessages, xpAdded: 50 });
     } else {
@@ -413,8 +543,8 @@ app.post("/api/ai-tutor/chat", async (req, res) => {
       const aiMsg = await Message.create({ role: "ai", text: aiResponse });
 
       // Give 50 XP
-      await User.findOneAndUpdate(
-        { name: "Aisha Khan" },
+      await User.findByIdAndUpdate(
+        req.user._id,
         { $inc: { xp: 50, xpToday: 50 } }
       );
 
@@ -427,7 +557,7 @@ app.post("/api/ai-tutor/chat", async (req, res) => {
 });
 
 // 6. GET Leaderboard
-app.get("/api/leaderboard", async (req, res) => {
+app.get("/api/leaderboard", requireAuth, async (req, res) => {
   const dbMode = getDbMode();
   try {
     if (dbMode.isInMemory) {
@@ -444,7 +574,7 @@ app.get("/api/leaderboard", async (req, res) => {
 });
 
 // 7. GET Certificates
-app.get("/api/certificates", async (req, res) => {
+app.get("/api/certificates", requireAuth, async (req, res) => {
   const dbMode = getDbMode();
   try {
     if (dbMode.isInMemory) {
@@ -459,7 +589,7 @@ app.get("/api/certificates", async (req, res) => {
 });
 
 // 8. GET Forum threads
-app.get("/api/forum", async (req, res) => {
+app.get("/api/forum", requireAuth, async (req, res) => {
   const dbMode = getDbMode();
   try {
     if (dbMode.isInMemory) {
@@ -474,7 +604,7 @@ app.get("/api/forum", async (req, res) => {
 });
 
 // 9. POST Create Forum thread
-app.post("/api/forum", async (req, res) => {
+app.post("/api/forum", requireAuth, async (req, res) => {
   const { title, tag, course } = req.body;
   if (!title || !tag || !course) {
     return res.status(400).json({ error: "Title, tag, and course are required" });
@@ -484,7 +614,7 @@ app.post("/api/forum", async (req, res) => {
   try {
     const newThreadObj = {
       title,
-      author: "Aisha Khan",
+      author: req.user.name,
       course,
       replies: 0,
       votes: 1,
@@ -497,15 +627,14 @@ app.post("/api/forum", async (req, res) => {
       memThreads.unshift(newThreadObj); // put at top
 
       // 100 XP for posting a thread!
-      const user = memUsers.find(x => x.name === "Aisha Khan") || memUsers[0];
-      user.xp += 100;
-      user.xpToday += 100;
+      req.user.xp += 100;
+      req.user.xpToday += 100;
 
       return res.json({ thread: newThreadObj, xpAdded: 100 });
     } else {
       const dbThread = await Thread.create(newThreadObj);
-      await User.findOneAndUpdate(
-        { name: "Aisha Khan" },
+      await User.findByIdAndUpdate(
+        req.user._id,
         { $inc: { xp: 100, xpToday: 100 } }
       );
       return res.json({ thread: dbThread, xpAdded: 100 });
@@ -516,7 +645,7 @@ app.post("/api/forum", async (req, res) => {
 });
 
 // 10. GET Schedule blocks
-app.get("/api/schedule", async (req, res) => {
+app.get("/api/schedule", requireAuth, async (req, res) => {
   const dbMode = getDbMode();
   try {
     if (dbMode.isInMemory) {
